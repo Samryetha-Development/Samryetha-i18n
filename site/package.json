@@ -10,7 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@lako/ui": "github:Samryetha-Development/lako-ui#c00b98469aeac39247faccc40859129f84c98dff",
+    "@lako/ui": "github:Samryetha-Development/lako-ui#038ec48b44a15a44b30a9a662ac8bd3f2a041550",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
