@@ -16,11 +16,14 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
 I18N_DIR = Path(__file__).resolve().parent
-FRONTEND_LOCALES_DIR = I18N_DIR.parent / "frontend" / "src" / "lib" / "locales"
+FRONTEND_LOCALES_DIR = Path(
+    os.environ.get("SAMRYETHA_LOCALES_DIR", "__external_source_not_configured__")
+).resolve()
 SEED_DIR = I18N_DIR / "seed"
 
 

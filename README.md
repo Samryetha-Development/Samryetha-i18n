@@ -22,7 +22,7 @@
 ## 快速启动
 
 ```bash
-cd i18n
+cd Samryetha-i18n
 cp .env.example .env
 # 按需编辑 .env
 
@@ -47,7 +47,7 @@ Swagger UI 在开发模式下可通过 http://localhost:3002/docs 访问。
 `I18N_AUTH_DB_URL` 控制会话验证来源：
 
 - **留空（默认）**：与 `I18N_DATABASE_URL` 同库。适用于开发/测试，需在 auth DB 中手工建 users/sessions 表，或使用 `seed.py` 之外的工具注入。
-- **设为主站 DB 路径**（如 `../backend/data/app.db`）：直接读取主站的 `samryetha_session`，零配置接入真实用户体系。
+- **设为显式挂载的主站 DB 路径**（如 `/srv/samryetha/app.db`）：读取 `samryetha_session` 接入真实用户体系。不要依赖相邻源码目录。
 
 本服务**只读** auth DB，不写入 users 或 sessions。
 
@@ -62,7 +62,7 @@ Swagger UI 在开发模式下可通过 http://localhost:3002/docs 访问。
 要在 `i18n.<主域>` 上共用主站的登录态，两点缺一不可：
 
 1. **主站**设置 `COOKIE_DOMAIN=.samryetha.com`（forum 与 sub 同域，session cookie 共享给 i18n 子域）；
-2. **本服务** `I18N_AUTH_DB_URL` 指向主站 `app.db`，读取 `samryetha_session` 完成身份识别。
+2. **本服务** `I18N_AUTH_DB_URL` 指向显式只读挂载的主站 `app.db`，读取 `samryetha_session` 完成身份识别。
 
 主站 SSR 侧的 i18n 预取用一个地址（`I18N_API_ORIGIN`，如内网 `http://127.0.0.1:3002`），
 注入浏览器用的则是公网地址（`I18N_CLIENT_ORIGIN`，如 `https://i18n.samryetha.com`），见 `frontend/README` 与 `server.mjs`。
@@ -87,32 +87,23 @@ cd i18n
 uv run pytest -v
 ```
 
-CI 的 `i18n` job（`.github/workflows/pr-checks.yml`）会在仓库根跑两段同步校验，再在 `i18n/` 下 `uv sync --dev` + `uv run pytest`。
+仓库 CI 应运行 `uv sync --dev`、`uv run pytest` 和翻译站构建。
 
 ## Seed 数据
 
 `seed/` 目录包含全量翻译，覆盖前端支持的 8 个 locale（`en`、`zh-CN`、`zh-TW`、`ja`、`ko`、`es`、`fr`、`de`），与前端保持同步。
 
-**翻译源（单向两跳）**：以 `frontend/src/lib/locales/*.ts` 为唯一真源（运行时实际 import）。
-链路为 `.ts` → `.json` → `seed/*.json` → DB，其中 `.json` 是生成的中间产物，不得手工改；
+**翻译源**：`seed/*.json` 是此仓库拥有的可导入 catalog 快照。Samryetha 前端通过版本化导入/导出流程同步，
+不再通过相邻源码目录或相对路径耦合。
+
+需要从 Samryetha 导入生成后的 JSON 时，显式设置 `SAMRYETHA_LOCALES_DIR` 后运行
+`uv run python sync_from_frontend.py`；此仓库不猜测另一个仓库的位置。
 `seed.py` 只进不出（seed → DB），不会回写前端。
 CI 的 `i18n` job 卡三段：`gen_locale_json.py --check`（.ts→.json）、`check_sync.py`
 （.json→seed，逐 locale 比对 key 集合 + 顺序 + 值）以及 i18n 的 pytest 套件。
 
 ```bash
 # 第 1 跳：.ts 改动后必跑（在 frontend/ 目录）
-python3 ../frontend/scripts/gen_locale_json.py
-python3 ../frontend/scripts/gen_locale_json.py --check   # 只对比不写入
-
-# 第 2 跳：前端 → seed 单向同步
-uv run python sync_from_frontend.py
-
-# 只对比不写入
-uv run python sync_from_frontend.py --check
-
-# CI 校验：逐 locale 比对 key 集合 + 顺序 + 值，不一致则 exit 1
-uv run python check_sync.py
-
 # 导入全部 locale
 uv run python seed.py
 
